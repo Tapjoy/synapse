@@ -651,9 +651,11 @@ module Synapse
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        watcher.backends.shuffle.map {|backend|
-          backend_name = construct_name(backend)
-          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}" }
+        watcher.backends.map do |backend|
+          server_string = "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}"
+          server_string << " backup" if backend['backup'] == true
+          server_string
+        end
       ]
     end
 
