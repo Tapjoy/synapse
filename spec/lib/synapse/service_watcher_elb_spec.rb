@@ -10,7 +10,6 @@ end
 describe ServiceWatcher::ElbWatcher do
   let(:mocksynapse) { double() }
   let(:mock_elb) { double(AWS::ELB) }
-  let(:mock_ec2) { double(AWS::EC2) }
   subject { Synapse::ElbWatcher.new(args, mocksynapse) }
   let(:testargs) { {'name' => 'foo', 'discovery' => {'method' => 'elb', 'elb-name' => 'foo'}, 'haproxy' => {'port' => 8082, 'server_port_override' => 9898}} }
 
@@ -104,7 +103,6 @@ describe ServiceWatcher::ElbWatcher do
       mock_elb.stub(:load_balancers).and_return(load_balancer_collection)
       mock_elb.stub(:instances).and_return(ec2_instances)
       AWS::ELB.stub(:new).and_return(mock_elb)
-      AWS::EC2.stub(:new).and_return(mock_ec2)
     end
 
     context "elb not found" do

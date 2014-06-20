@@ -1,6 +1,5 @@
 require 'synapse/service_watcher/base'
 require 'net/http'
-require 'aws/ec2'
 require 'aws/elb'
 
 module Synapse
@@ -9,7 +8,6 @@ module Synapse
     def initialize(opts={}, synapse)
       super
       @elb_client = AWS::ELB.new
-      @ec2_client = AWS::EC2.new
       @my_zone = Net::HTTP.get(URI('http://169.254.169.254/latest/meta-data/placement/availability-zone'))
       log.info "running in AWS zone #{@my_zone}"
     end
