@@ -93,9 +93,9 @@ module Synapse
           server_hash = {'name' => instance.public_dns_name,
                          'host' => instance.private_ip_address,
                          'port' => @haproxy['server_port_override']}
-          # any server not in my zone is a backup
-          if zone != @my_zone
-            server_hash['backup'] = true
+          if @discovery['prefer-same-zone'] && @discovery['prefer-same-zone'] == true
+            # any server not in my zone is marked as a backup
+            server_hash['backup'] = true if zone != @my_zone
           end
           healthy_instances << server_hash
         end

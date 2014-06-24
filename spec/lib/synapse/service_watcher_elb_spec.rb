@@ -11,7 +11,7 @@ describe ServiceWatcher::ElbWatcher do
   let(:mocksynapse) { double() }
   let(:mock_elb) { double(AWS::ELB) }
   subject { Synapse::ElbWatcher.new(args, mocksynapse) }
-  let(:testargs) { {'name' => 'foo', 'discovery' => {'method' => 'elb', 'elb-name' => 'foo'}, 'haproxy' => {'port' => 8082, 'server_port_override' => 9898}} }
+  let(:testargs) { {'name' => 'foo', 'discovery' => {'method' => 'elb', 'elb-name' => 'foo', 'prefer-same-zone' => true}, 'haproxy' => {'port' => 8082, 'server_port_override' => 9898}} }
 
   before :each do
     Net::HTTP.stub(:get).with(URI('http://169.254.169.254/latest/meta-data/placement/availability-zone')).and_return("us-east-1b")
@@ -133,16 +133,6 @@ describe ServiceWatcher::ElbWatcher do
         ec2_instances.stub(:health).and_return([{:instance => ec2_us_east_1b, :state => 'InService'}, {:instance => ec2_us_east_1e, :state => 'InService'}])
       end
 
-      it 'configures backends when they change' do
-        expect(subject).to receive(:sleep_until_next_check) do |arg|
-          subject.instance_variable_set('@should_exit', true)
-        end
-        expect(subject).to receive(:'reconfigure!').once
-        expect(subject).to receive(:instances).once.and_call_original
-        expect(subject).to receive(:configure_backends).once.with([{"name"=>"ec2-1-2-3-4.compute-1.amazonaws.com", "host"=>"1.2.3.4", "port"=>9898}, {"name"=>"ec2-5-6-7-8.compute-1.amazonaws.com", "host"=>"5.6.7.8", "port"=>9898, "backup"=>true}]).and_call_original
-        subject.send(:watch)
-      end
-
       it 'only configures healthy instances as backends' do
         ec2_instances.stub(:health).and_return([{:instance => ec2_us_east_1b, :state => 'InService'}, {:instance => ec2_us_east_1e, :state => 'OutOfService'}])
         expect(subject).to receive(:sleep_until_next_check) do |arg|
@@ -162,6 +152,45 @@ describe ServiceWatcher::ElbWatcher do
         expect(subject).to receive(:instances).and_return([])
         expect(subject).to_not receive(:configure_backends)
         subject.send(:watch)
+      end
+
+      context "'prefer-same-zone' == true" do
+        it 'configures instances in other zones as backups' do
+          expect(subject).to receive(:sleep_until_next_check) do |arg|
+            subject.instance_variable_set('@should_exit', true)
+          end
+          expect(subject).to receive(:'reconfigure!').once
+          expect(subject).to receive(:instances).once.and_call_original
+          expect(subject).to receive(:configure_backends).once.with([{"name"=>"ec2-1-2-3-4.compute-1.amazonaws.com", "host"=>"1.2.3.4", "port"=>9898}, {"name"=>"ec2-5-6-7-8.compute-1.amazonaws.com", "host"=>"5.6.7.8", "port"=>9898, "backup"=>true}]).and_call_original
+          subject.send(:watch)
+        end
+      end
+
+      context "'prefer-same-zone' not present (defaults to false)" do
+        let(:args) { remove_discovery_arg 'prefer-same-zone' }
+
+        it "doesn't configures backends in other zones as backups" do
+          expect(subject).to receive(:sleep_until_next_check) do |arg|
+            subject.instance_variable_set('@should_exit', true)
+          end
+          expect(subject).to receive(:'reconfigure!').once
+          expect(subject).to receive(:instances).once.and_call_original
+          expect(subject).to receive(:configure_backends).once.with([{"name"=>"ec2-1-2-3-4.compute-1.amazonaws.com", "host"=>"1.2.3.4", "port"=>9898}, {"name"=>"ec2-5-6-7-8.compute-1.amazonaws.com", "host"=>"5.6.7.8", "port"=>9898}]).and_call_original
+          subject.send(:watch)
+        end
+      end
+
+      context "'prefer-same-zone' == false" do
+        it "doesn't configures backends in other zones as backups" do
+          args['discovery']['prefer-same-zone'] = false
+          expect(subject).to receive(:sleep_until_next_check) do |arg|
+            subject.instance_variable_set('@should_exit', true)
+          end
+          expect(subject).to receive(:'reconfigure!').once
+          expect(subject).to receive(:instances).once.and_call_original
+          expect(subject).to receive(:configure_backends).once.with([{"name"=>"ec2-1-2-3-4.compute-1.amazonaws.com", "host"=>"1.2.3.4", "port"=>9898}, {"name"=>"ec2-5-6-7-8.compute-1.amazonaws.com", "host"=>"5.6.7.8", "port"=>9898}]).and_call_original
+          subject.send(:watch)
+        end
       end
     end
   end
