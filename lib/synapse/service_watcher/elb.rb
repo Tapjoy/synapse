@@ -81,7 +81,7 @@ module Synapse
         log.info "  #{key}: #{value.map(&:id)}"
       end
 
-      all_zones = healthy_instances_by_zone.keys #.sort
+      all_zones = healthy_instances_by_zone.keys
       if all_zones.include?(@my_zone)
         all_zones.delete(@my_zone)
         all_zones = all_zones.unshift(@my_zone)
